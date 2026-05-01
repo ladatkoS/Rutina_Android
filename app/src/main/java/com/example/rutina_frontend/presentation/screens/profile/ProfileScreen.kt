@@ -2,7 +2,9 @@ package com.example.rutina_frontend.presentation.screens.profile
 
 import android.content.Context
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -18,6 +20,7 @@ import androidx.navigation.NavController
 import com.example.rutina_frontend.data.models.UserDto
 import com.example.rutina_frontend.presentation.viewmodels.ProfileState
 import com.example.rutina_frontend.presentation.viewmodels.ProfileViewModel
+import com.example.rutina_frontend.presentation.viewmodels.StatsState
 import com.example.rutina_frontend.utils.DataStoreManager
 import kotlinx.coroutines.launch
 
@@ -53,17 +56,12 @@ fun ProfileScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Профиль") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                viewModel.logout(context)
-                                navController.navigate("login") {
-                                    popUpTo("profile") { inclusive = true }
-                                }
-                            }
-                        }
-                    ) {
+                    IconButton(onClick = { /* logout */ }) {
                         Icon(Icons.Default.ExitToApp, contentDescription = "Выйти")
                     }
                 }
@@ -81,12 +79,21 @@ fun ProfileScreen(
                 }
                 is ProfileState.Success -> {
                     val user = (profileState as ProfileState.Success).user
-                    ProfileContent(
-                        user = user,
-                        isAdmin = isAdmin,
-                        onRefresh = { viewModel.loadProfile(context) },
-                        onAdminPanelClick = { navController.navigate("admin_users") }
-                    )
+                    // ДОБАВЛЯЕМ ПРОКРУТКУ
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        ProfileContent(
+                            user = user,
+                            isAdmin = isAdmin,
+                            onRefresh = { viewModel.loadProfile(context) },
+                            onAdminPanelClick = { navController.navigate("admin_users") }
+                        )
+                    }
                 }
                 is ProfileState.Error -> {
                     Column(
@@ -119,135 +126,128 @@ fun ProfileContent(
     val actualIsAdmin = isAdmin || user.role == "ADMIN"
     val completedHabits = user.totalScore
 
-    Column(
+    // Аватар
+    Card(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .size(80.dp)
+            .clip(CircleShape),
+        colors = CardDefaults.cardColors(
+            containerColor = if (actualIsAdmin) {
+                MaterialTheme.colorScheme.tertiary
+            } else {
+                MaterialTheme.colorScheme.primary
+            }
+        )
     ) {
-        // Аватар
-        Card(
-            modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape),
-            colors = CardDefaults.cardColors(
-                containerColor = if (actualIsAdmin) {
-                    MaterialTheme.colorScheme.tertiary
-                } else {
-                    MaterialTheme.colorScheme.primary
-                }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (actualIsAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(48.dp)
             )
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (actualIsAdmin) Icons.Default.AdminPanelSettings else Icons.Default.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(60.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = user.name,
-            style = MaterialTheme.typography.headlineSmall
-        )
-
-        Text(
-            text = user.email,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        if (actualIsAdmin) {
-            Text(
-                text = "👑 Администратор",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Кнопка админ-панели
-        if (actualIsAdmin) {
-            Button(
-                onClick = onAdminPanelClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary
-                )
-            ) {
-                Icon(Icons.Default.People, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Управление пользователями")
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // Основная информация
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Основная информация",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                ProfileInfoRow("📞 Телефон", user.phone)
-                ProfileInfoRow("💰 Баланс", "${user.balance}")
-                ProfileInfoRow("📅 Дата регистрации", user.createdAt.substring(0, 10))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Статистика привычек
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "📊 Статистика привычек",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                ProfileInfoRow("🔄 Активных привычек", "${user.countOfHabits}")
-                ProfileInfoRow("✅ Завершено привычек", "$completedHabits")
-                ProfileInfoRow("🏆 Всего очков", "${user.totalScore}")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedButton(
-            onClick = onRefresh,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Обновить данные")
         }
     }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        text = user.name,
+        style = MaterialTheme.typography.headlineSmall
+    )
+
+    Text(
+        text = user.email,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    if (actualIsAdmin) {
+        Text(
+            text = "Администратор",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.tertiary,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    // Кнопка админ-панели (компактная)
+    if (actualIsAdmin) {
+        OutlinedButton(
+            onClick = onAdminPanelClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Управление пользователями", style = MaterialTheme.typography.bodyMedium)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+    }
+
+    // Основная информация
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Основная информация",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            ProfileInfoRow("Телефон", user.phone)
+            ProfileInfoRow("Баланс", "${user.balance}")
+            ProfileInfoRow("Дата регистрации", user.createdAt.substring(0, 10))
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    // Статистика привычек
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Статистика привычек",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            ProfileInfoRow("Активных привычек", "${maxOf(0, user.countOfHabits)}")
+            ProfileInfoRow("Завершено привычек", "$completedHabits")
+            ProfileInfoRow("Всего очков", "${user.totalScore}")
+        }
+    }
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    // Кнопка "Обновить" — теперь всегда видна
+    OutlinedButton(
+        onClick = onRefresh,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Обновить данные")
+    }
+
+    // Дополнительный отступ снизу
+    Spacer(modifier = Modifier.height(32.dp))
 }
 
 @Composable

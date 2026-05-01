@@ -1,6 +1,6 @@
 package com.example.rutina_frontend.presentation.screens.habits
 
-import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -89,11 +89,14 @@ fun CreateHabitScreen(
 
             Button(
                 onClick = {
+                    Log.d("📱 CreateHabitScreen", ">>> Кнопка 'Создать привычку' НАЖАТА <<<")
+                    Log.d("📱 CreateHabitScreen", "name: $name, description: $description, period: $formationPeriod")
+
                     viewModel.createHabit(
                         context = context,
                         name = name,
                         description = description,
-                        type = "DEFAULT",  // ← Значение по умолчанию
+                        type = "DEFAULT",
                         formationPeriod = formationPeriod.toIntOrNull() ?: 0
                     )
                 },
